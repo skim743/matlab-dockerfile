@@ -15,13 +15,16 @@
 ARG MATLAB_RELEASE=r2023b
 
 # Specify the list of products to install into MATLAB.
-ARG MATLAB_PRODUCT_LIST="MATLAB"
+# ARG MATLAB_PRODUCT_LIST="MATLAB"
 
 # Specify MATLAB Install Location.
 ARG MATLAB_INSTALL_LOCATION="/opt/matlab/${MATLAB_RELEASE}"
 
 # Specify license server information using the format: port@hostname 
-ARG LICENSE_SERVER
+# ARG LICENSE_SERVER
+
+# Input file for mpm
+ARG INPUT_FILE
 
 # When you start the build stage, this Dockerfile by default uses the Ubuntu-based matlab-deps image.
 # To check the available matlab-deps images, see: https://hub.docker.com/r/mathworks/matlab-deps
@@ -31,7 +34,7 @@ FROM mathworks/matlab-deps:${MATLAB_RELEASE}
 ARG MATLAB_RELEASE
 ARG MATLAB_PRODUCT_LIST
 ARG MATLAB_INSTALL_LOCATION
-ARG LICENSE_SERVER
+# ARG LICENSE_SERVER
 
 # Install mpm dependencies.
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -53,18 +56,26 @@ RUN adduser --shell /bin/bash --disabled-password --gecos "" matlab \
 USER matlab
 WORKDIR /home/matlab
 
+# Copy the mpm input file and license file to the container.
+COPY ./mpm-input-files/R2023b/mpm_input_r2023b.txt .
+# COPY license.lic /licenses/license.lic
+
 # Run mpm to install MATLAB in the target location and delete the mpm installation afterwards.
 # If mpm fails to install successfully, then print the logfile in the terminal, otherwise clean up.
 # Pass in $HOME variable to install support packages into the user's HOME folder.
 RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \ 
     && chmod +x mpm \
     && sudo HOME=${HOME} ./mpm install \
-    --release=${MATLAB_RELEASE} \
-    --destination=${MATLAB_INSTALL_LOCATION} \
-    --products ${MATLAB_PRODUCT_LIST} \
+    --inputfile /home/matlab/mpm_input_r2023b.txt \
     || (echo "MPM Installation Failure. See below for more information:" && cat /tmp/mathworks_root.log && false) \
     && sudo rm -f mpm /tmp/mathworks_root.log \
     && sudo ln -s ${MATLAB_INSTALL_LOCATION}/bin/matlab /usr/local/bin/matlab
+
+# Give matlab sudo privileges
+RUN sudo usermod -aG matlab matlab
+
+# Remove the default license file. Otherwise, MATLAB will prompt to login every single time the container starts.
+RUN sudo rm -f ${MATLAB_INSTALL_LOCATION}/licenses/license_info.xml
 
 # Note: Uncomment one of the following two ways to configure the license server.
 
@@ -73,7 +84,7 @@ RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \
 # is the preferred option. You can either use a build variable, like this: 
 # --build-arg LICENSE_SERVER=27000@MyServerName or you can specify the license server 
 # directly using: ENV MLM_LICENSE_FILE=27000@flexlm-server-name
-ENV MLM_LICENSE_FILE=$LICENSE_SERVER
+# ENV MLM_LICENSE_FILE=${WORKDIR}/license.lic
 
 # Option 2. Alternatively, you can put a license file into the container.
 # Enter the details of the license server in this file and uncomment the following line.
@@ -85,7 +96,7 @@ ENV MLM_LICENSE_FILE=$LICENSE_SERVER
 # To opt out of this service, delete the environment variables defined in the following line. 
 # To learn more, see the Help Make MATLAB Even Better section in the accompanying README: 
 # https://github.com/mathworks-ref-arch/matlab-dockerfile#help-make-matlab-even-better
-ENV MW_DDUX_FORCE_ENABLE=true MW_CONTEXT_TAGS=MATLAB:DOCKERFILE:V1
+# ENV MW_DDUX_FORCE_ENABLE=true MW_CONTEXT_TAGS=MATLAB:DOCKERFILE:V1
 
-ENTRYPOINT ["matlab"]
-CMD [""]
+# ENTRYPOINT ["matlab"]
+# CMD [""]
