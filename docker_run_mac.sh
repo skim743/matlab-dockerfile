@@ -8,4 +8,4 @@ sudo docker run -it \
 				-e DISPLAY=host.docker.internal:0 \
 				-v ~/git/robotarium_matlab_backend:/home/matlab/Documents/MATLAB \
 				-w /home/matlab/Documents/MATLAB \
-				matlab_backend
+				robotarium:matlab_backend_ROS matlab

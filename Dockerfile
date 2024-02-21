@@ -47,13 +47,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get autoremove \
     && rm -rf /var/lib/apt/lists/*
 
-# Add "matlab" user and grant sudo permission.
-RUN adduser --shell /bin/bash --disabled-password --gecos "" matlab \
-    && echo "matlab ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/matlab \
-    && chmod 0440 /etc/sudoers.d/matlab
+# Install Python3 and other dependencies for MATLAB ROS Toolbox
+RUN apt-get -y update
+RUN apt-get -y install python3 python3-venv python3-dev g++ libgtk2.0-0
+
+# # Add "matlab" user and grant sudo permission.
+# RUN adduser --shell /bin/bash --disabled-password --gecos "" matlab \
+#     && echo "matlab ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/matlab \
+#     && chmod 0440 /etc/sudoers.d/matlab
 
 # Set user and work directory.
-USER matlab
+# USER matlab
 WORKDIR /home/matlab
 
 # Copy the mpm input file and license file to the container.
@@ -65,17 +69,20 @@ COPY ./mpm-input-files/R2023b/mpm_input_r2023b.txt .
 # Pass in $HOME variable to install support packages into the user's HOME folder.
 RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm \ 
     && chmod +x mpm \
-    && sudo HOME=${HOME} ./mpm install \
+    && HOME=${HOME} ./mpm install \
     --inputfile /home/matlab/mpm_input_r2023b.txt \
     || (echo "MPM Installation Failure. See below for more information:" && cat /tmp/mathworks_root.log && false) \
-    && sudo rm -f mpm /tmp/mathworks_root.log \
-    && sudo ln -s ${MATLAB_INSTALL_LOCATION}/bin/matlab /usr/local/bin/matlab
+    && rm -f mpm /tmp/mathworks_root.log \
+    && ln -s ${MATLAB_INSTALL_LOCATION}/bin/matlab /usr/local/bin/matlab
+
+# Add the library path to the environment. Otherwise, MATLAB ROS Toolbox will not recognize Python libraries.
+RUN echo "LD_LIBRARY_PATH=/lib:/usr/lib:/usr/local/lib" >> /etc/environment
 
 # Give matlab sudo privileges
-RUN sudo usermod -aG matlab matlab
+# RUN sudo usermod -aG matlab matlab
 
 # Remove the default license file. Otherwise, MATLAB will prompt to login every single time the container starts.
-RUN sudo rm -f ${MATLAB_INSTALL_LOCATION}/licenses/license_info.xml
+RUN rm -f ${MATLAB_INSTALL_LOCATION}/licenses/license_info.xml
 
 # Note: Uncomment one of the following two ways to configure the license server.
 
